@@ -1,136 +1,200 @@
+# Smart Office Seat Booking System
 
-# Smart Seat Allocation & Utilization Management System
+A full-stack **office seat booking** app with batch-based weekly rotation, designated vs floater seats, holidays, leave days, and admin seat management. Built with **React (Vite)** frontend and **Node.js / Express / MongoDB** backend.
 
-This project is a MERN Stack–based application designed to efficiently manage and optimize office seat utilization for employees operating in rotating batches. The system ensures structured allocation, prevents booking conflicts, and provides visibility into daily seat usage.
+---
 
-Project Overview
+## What It Does
 
-The organization consists of 80 employees divided into 10 squads (8 members each), while only 50 physical seats are available (40 fixed seats and 10 floater seats). Employees operate in two alternating batches with different weekly schedules.
+- **Employees** sign up with a batch (A or B) and book seats for the current week on a **timeline schedule** (seats × Mon–Fri).
+- **Batch rules**: Designated seats (1–40) are bookable on your batch’s designated days; floater seats (41–50) on the other days.
+- **Holidays** block all bookings for those dates; **Leave day** lets employees release their seat for a day (with reason) and optionally cancel leave to rebook.
+- **Admins** can enable/disable seats (maintenance) and manage the system from the Admin panel.
 
-This system automates seat allocation based on predefined business rules, ensures fair usage, prevents double booking, and provides analytics for management decision-making.
+---
 
-Key Objectives
+## Tech Stack
 
-• Optimize utilization of limited seating resources
-• Enforce batch-based attendance rules
-• Prevent seat booking on weekends and holidays
-• Enable controlled seat blocking after 3 PM
-• Allow employees to vacate seats when on leave
-• Provide real-time seat utilization tracking
+| Layer   | Stack |
+|--------|--------|
+| Frontend | React 18, Vite, React Router, Axios |
+| Backend  | Node.js, Express |
+| Database | MongoDB (Mongoose) |
+| Auth     | JWT (httpOnly-style token in localStorage) |
 
-System Architecture
+---
 
-Frontend: React.js
-Backend: Node.js with Express
-Database: MongoDB
+## Quick Start
 
-The application follows a REST-based architecture where the frontend communicates with the backend via API endpoints, and the backend manages business logic and data persistence using MongoDB.
+### Prerequisites
 
-User → React Interface → Express REST API → MongoDB
+- **Node.js** (v18+)
+- **MongoDB** running (e.g. `mongodb://localhost:27017` or MongoDB Atlas)
 
-Project Structure
+### 1. Clone and open the project
 
-seat-booking-backend/
+```bash
+git clone <your-repo-url>
+cd Seat-Booking-System-main
+```
 
-server.js – Application entry point
-seedSeats.js – Script to generate initial seat data
+### 2. Backend setup and run
 
-config/
-db.js – MongoDB connection configuration
+```bash
+cd backend
+npm install
+```
 
-models/
-User.js – Employee schema
-Seat.js – Seat schema
-Booking.js – Booking schema
-Holiday.js – Holiday schema
-Squad.js – Squad schema
+Create a **`.env`** file in `backend/` (you can copy from `.env.example` if present):
 
-controllers/
-bookingController.js – Seat booking logic
-adminController.js – Administrative operations
+```env
+MONGO_URI=mongodb://localhost:27017/seat-booking
+PORT=5000
+JWT_SECRET=your-secret-key-change-in-production
+```
 
-routes/
-bookingRoutes.js – Booking-related API endpoints
-adminRoutes.js – Admin-related API endpoints
+Then:
 
-utils/
-dateUtils.js – Helper functions for date validation, batch logic, and time-based rules
+```bash
+npm run seed    # Creates 50 seats, sample users, holidays (run once)
+npm run dev     # Server at http://localhost:5000
+```
 
-Database Design
+### 3. Frontend setup and run (new terminal)
 
-Users Collection
-Stores employee information including batch assignment and squad mapping.
+```bash
+cd frontend
+npm install
+npm run dev     # UI at http://localhost:5173
+```
 
-Seats Collection
-Contains 50 seat records classified as FIXED or FLOATER.
+Open **http://localhost:5173** in your browser.
 
-Bookings Collection
-Maintains daily seat reservations with status values:
-• BOOKED
-• BLOCKED
-• VACATED
+---
 
-A unique compound index on (seatId, date) ensures that a seat cannot be double-booked on the same day.
+## Sample Credentials (after `npm run seed`)
 
-Holidays Collection
-Stores organization-defined holidays to restrict booking on specific dates.
+| Email              | Password        | Role    | Batch |
+|--------------------|-----------------|---------|-------|
+| admin@example.com  | SecureAdmin@2026 | Admin   | A     |
+| alice@example.com  | Rahul@1234      | Employee| A     |
+| bob@example.com    | Sneha@5678      | Employee| B     |
+| carol@example.com  | Arjun@9012     | Employee| A     |
 
-Core Functionalities
+---
 
-Weekly Batch-Based Allocation
-The system validates employee batch schedules dynamically based on the week number and assigned working days.
+## Main Features
 
-Seat Blocking Rule
-Employees are allowed to block seats only after 3 PM for the next valid working day.
+- **Auth** — Register / login with name, email, password, batch. JWT stored in localStorage.
+- **Home** — Landing after login with link to the booking (schedule) page.
+- **Schedule** — Timeline view: left column = seats (1–50), columns = Mon–Fri. Each cell shows seat number and status (Designated, Floater, Your booking, Taken, Blocked). Blocked cells (wrong day, holiday, maintenance) use a striped style; floater seats show an “F” badge.
+- **Booking** — Click an available seat tile to book that seat for that day. You can only book according to batch and seat-type rules.
+- **Holidays** — List of holidays; admins can add/remove. These dates are blocked for everyone.
+- **Leave day** (employees only) — Pick a date and reason, then “Apply leave and release seat” to free your seat, or “Cancel leave and restore seat” to rebook.
+- **Admin** — Enable/disable seats (maintenance). Admin link only visible to users with role `ADMIN`.
 
-Leave-Based Seat Vacating
-Users can vacate previously booked seats, making them immediately available for others.
+---
 
-Holiday and Weekend Restriction
-The system prevents booking on Saturdays, Sundays, and administrator-defined holidays.
+## How the Rules Work
 
-Seat Allocation Strategy
-The system validates working day rules, checks eligibility, verifies availability, and assigns the first available seat while preventing conflicts.
+### Seat types
 
-Utilization Tracking
-Daily seat utilization is calculated as:
+| Seat numbers | Type        |
+|-------------|-------------|
+| 1–40        | Designated  |
+| 41–50       | Floater     |
 
-Utilization (%) = (Booked Seats / 50) × 100
+### Batch and week
 
-This metric enables management to analyze occupancy efficiency.
+- Week type is based on **ISO week number** of the date:
+  - **Odd ISO week** → WEEK_1  
+  - **Even ISO week** → WEEK_2  
 
-API Endpoints
+| Batch | WEEK_1 (Mon–Wed / Thu–Fri) | WEEK_2 |
+|-------|----------------------------|--------|
+| **A** | Mon, Tue, Wed              | Thu, Fri |
+| **B** | Thu, Fri                   | Mon, Tue, Wed |
 
-Booking APIs
-POST /api/bookings/book
-POST /api/bookings/block
-POST /api/bookings/vacate
-GET /api/bookings/available?date=YYYY-MM-DD
-GET /api/bookings/user/:userId
-GET /api/bookings/utilization?date=YYYY-MM-DD
+### Who can book which seat when
 
-Admin APIs
-POST /api/admin/holiday
-GET /api/admin/holidays
-DELETE /api/admin/holiday/:id
+- **Designated seats** — Only on your batch’s **designated** days for that week type.
+- **Floater seats** — Only on your batch’s **non-designated** days.
 
-Technical Considerations
+### Other rules
 
-• Business rule validation at the controller layer
-• Unique indexing to prevent duplicate seat allocation
-• Status-based booking state management
-• Date validation for weekend and holiday enforcement
-• Modular folder structure for scalability and maintainability
+- Weekends (Sat/Sun) and holidays are blocked.
+- Inactive (maintenance) seats are blocked.
+- One booking per seat per date; users can only release their own bookings.
 
-Future Enhancements
+### Note on booking time
 
-• JWT-based authentication and role-based authorization
-• Real-time updates using WebSockets (Socket.io)
-• Dashboard analytics for management
-• Floor heatmap visualization
-• Concurrency-safe booking using database transactions
-• Deployment-ready configuration for cloud hosting
+- The original “booking opens after 3 PM IST” rule is **disabled** in the frontend so that booking is allowed at any time (useful for demos and testing).
 
-Conclusion
+---
 
-This system demonstrates structured backend architecture, rule-based allocation logic, database consistency management, and real-time utilization analytics. It reflects strong system design principles and scalable MERN stack implementation practices.
+## Routes (Frontend)
+
+| Path       | Access     | Description                |
+|------------|------------|----------------------------|
+| `/auth`    | Public     | Login / Register           |
+| `/`        | Logged in  | Home                       |
+| `/schedule`| Logged in  | Weekly timeline & booking  |
+| `/holidays`| Logged in  | Holidays list              |
+| `/leave`   | Employees  | Apply / cancel leave       |
+| `/admin`   | Admins     | Seat enable/disable        |
+
+---
+
+## API Endpoints (Backend)
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST   | `/auth/register` | Register (name, email, password, batch) |
+| POST   | `/auth/login`    | Login → returns JWT |
+| GET    | `/seats`         | All seats |
+| GET    | `/bookings?week=YYYY-WW` | Bookings for that ISO week |
+| POST   | `/bookings`      | Create booking (policy engine) |
+| DELETE | `/bookings/:id`  | Release own booking |
+| GET    | `/my-bookings`   | Current user’s upcoming bookings |
+| GET    | `/holidays`      | List holidays |
+| POST   | `/holidays`      | Add holiday `{ date, reason }` |
+| DELETE | `/holidays/:id`  | Remove holiday |
+| GET/PATCH | `/admin/seats` | List/update seats (enable/disable) |
+
+All except `/auth/*` require `Authorization: Bearer <JWT>`.
+
+---
+
+## Project Structure
+
+```
+Seat-Booking-System-main/
+├── backend/
+│   ├── models/        # User, Seat, Booking, Holiday
+│   ├── routes/        # auth, seats, bookings, holidays, myBookings, admin
+│   ├── middleware/    # authMiddleware
+│   ├── policyEngine.js
+│   ├── seed.js
+│   ├── index.js
+│   └── .env           # MONGO_URI, PORT, JWT_SECRET (not committed)
+├── frontend/
+│   └── src/
+│       ├── pages/     # AuthPage, HomePage, BookingPage, HolidaysPage, LeavePage, AdminPage
+│       ├── components/# Navbar, SeatGrid, etc.
+│       ├── App.jsx
+│       └── main.jsx
+└── README.md
+```
+
+---
+
+## Theme and UI
+
+- White, SaaS-style layout with light gray sections and indigo/blue accents.
+- Schedule uses a **timeline layout** (seats on the left, weekdays as columns) with square-ish cells and clear labels (seat number + designation/status).
+
+---
+
+## License
+
+Use and modify as needed for your organization.
